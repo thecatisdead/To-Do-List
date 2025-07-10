@@ -281,6 +281,8 @@ export default function Index() {
         data={filteredTodos}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
+        
+        
         renderItem={({ item: t }) => (
           <View className="mt-2 border -b border-gray-300 rounded-xl bg-white">
             <Pressable onPress={() => openEditModal(t)}>

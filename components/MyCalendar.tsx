@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import { supabase } from "@/services/supabaseClient";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Calendar, DateData } from "react-native-calendars";
 
@@ -7,23 +8,67 @@ type MyCalendarProps = {
 };
 
 export default function MyCalendar({ onDateChange }: MyCalendarProps) {
+  const [taskDates, setTaskDates] = useState<string[]>([]);
+
   const [selectedDate, setSelectedDate] = useState<string>("");
 
   const onDayPress = (day: DateData) => {
     setSelectedDate(day.dateString);
-    if (onDateChange) {
-      onDateChange(day.dateString);
-    }
+
+    onDateChange?.(day.dateString);
   };
 
-  const markedDates = selectedDate
-    ? {
-        [selectedDate]: {
-          selected: true,
-          selectedColor: "#00B0FF",
-        },
+  const markedDates = taskDates.reduce(
+    (acc, date) => {
+      acc[date] = {
+        marked: true,
+        dotColor: "red",
+      };
+      return acc;
+    },
+    {} as Record<string, any>
+  );
+
+  if (selectedDate) {
+    markedDates[selectedDate] = {
+      ...(markedDates[selectedDate] || {}),
+      selected: true,
+      selectedColor: "#00B0FF",
+    };
+  }
+
+  useEffect(() => {
+    const fetchAllTaskDates = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("todos")
+        .select("due_at")
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error(error);
+        return;
       }
-    : {};
+
+      if (data) {
+        const uniqueDates = [
+          ...new Set(
+            data
+              .filter((item) => item.due_at != null)
+              .map((item) => new Date(item.due_at).toISOString().split("T")[0])
+          ),
+        ];
+
+        setTaskDates(uniqueDates);
+      }
+    };
+
+    fetchAllTaskDates();
+  }, []);
 
   return (
     <View style={styles.container}>
