@@ -17,6 +17,9 @@ import Modal from "react-native-modal";
 import { Todo } from "../../types/intefaces";
 
 export default function Index() {
+  const [selectedDateTime, setSelectedDateTime] = useState<Date | null>(null);
+  const [activeTab, setActiveTab] = useState<"today" | "tomorrow">("today");
+
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -128,7 +131,24 @@ export default function Index() {
     }
   };
 
+  const getDefaultDueAt = () => {
+    const now = new Date();
+    now.setHours(23, 59, 0, 0);
+    return now;
+  };
+
   const handleAddTodo = async () => {
+    let dueDateToSave: Date;
+
+    if (selectedDateTime) {
+      dueDateToSave = selectedDateTime;
+    } else if (activeTab === "today") {
+      dueDateToSave = getDefaultDueAt();
+    } else {
+      alert("Please Select a date and time for this task.");
+      return;
+    }
+
     if (!newTitle) return;
 
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -151,9 +171,12 @@ export default function Index() {
         completed: false,
         description: newDescription,
         priority: newPriority,
-        due_at: dueDate ? dueDate.toISOString() : null,
+
+        due_at: dueDateToSave.toISOString(),
       },
     ]);
+
+    setSelectedDateTime(null);
 
     setNewTitle("");
     setNewDescription("");
@@ -165,6 +188,12 @@ export default function Index() {
   const handleDeleteTodo = async (id: string) => {
     await supabase.from("todos").delete().eq("id", id);
     fetchTodos();
+  };
+
+  const handleConfirm = (date: Date) => {
+    console.log("Picked date:", date);
+    setDatePickerVisibility(false);
+    setDueDate(date);
   };
 
   return (
@@ -223,13 +252,15 @@ export default function Index() {
             isVisible={isDatePickerVisible}
             mode="datetime"
             display="default"
-            onConfirm={(selectedDate) => {
-              console.log("Picked date: ", selectedDate);
+            onConfirm={(date) => {
+              console.log("Picked date: ", date);
+
+              setSelectedDateTime(date);
               setDatePickerVisibility(false);
-              setDueDate(selectedDate);
             }}
             onCancel={() => {
               console.log("Date Picker cancelled");
+              setDatePickerVisibility(false);
             }}
           />
 
@@ -281,8 +312,6 @@ export default function Index() {
         data={filteredTodos}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
-        
-        
         renderItem={({ item: t }) => (
           <View className="mt-2 border -b border-gray-300 rounded-xl bg-white">
             <Pressable onPress={() => openEditModal(t)}>
